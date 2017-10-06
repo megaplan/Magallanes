@@ -187,34 +187,40 @@ class DeployCommand extends AbstractCommand
         foreach ($tasks as $taskName) {
             /** @var AbstractTask $task */
             $task = $this->taskFactory->get($taskName);
-            $output->write(sprintf('        Running <fg=magenta>%s</> ... ', $task->getDescription()));
+            $text = sprintf('        Running <fg=magenta>%s</>', $task->getDescription());
+            $this->runtime->getIsLoggerStdout()
+                ? $output->writeln($text)
+                : $output->write($text.' ... ');
             $this->log(sprintf('Running task %s (%s)', $task->getDescription(), $task->getName()));
 
             if ($this->runtime->inRollback() && !$task instanceof ExecuteOnRollbackInterface) {
                 $succeededTasks++;
-                $output->writeln('<fg=yellow>SKIPPED</>');
+                $taskTextStatus = '<fg=yellow>SKIPPED</>';
                 $this->log(sprintf('Task %s (%s) finished with SKIPPED, it was in a Rollback', $task->getDescription(), $task->getName()));
             } else {
                 try {
                     if ($task->execute()) {
                         $succeededTasks++;
-                        $output->writeln('<fg=green>OK</>');
+                        $taskTextStatus = '<fg=green>OK</>';
                         $this->log(sprintf('Task %s (%s) finished with OK', $task->getDescription(), $task->getName()));
                     } else {
-                        $output->writeln('<fg=red>FAIL</>');
+                        $taskTextStatus = '<fg=red>FAIL</>';
                         $this->statusCode = 180;
                         $this->log(sprintf('Task %s (%s) finished with FAIL', $task->getDescription(), $task->getName()));
                     }
                 } catch (SkipException $exception) {
                     $succeededTasks++;
-                    $output->writeln('<fg=yellow>SKIPPED</>');
+                    $taskTextStatus = '<fg=yellow>SKIPPED</>';
                     $this->log(sprintf('Task %s (%s) finished with SKIPPED, thrown SkipException', $task->getDescription(), $task->getName()));
                 } catch (ErrorException $exception) {
-                    $output->writeln(sprintf('<fg=red>ERROR</> [%s]', $exception->getTrimmedMessage()));
+                    $taskTextStatus = sprintf('<fg=red>ERROR</> [%s]', $exception->getTrimmedMessage());
                     $this->log(sprintf('Task %s (%s) finished with FAIL, with Error "%s"', $task->getDescription(), $task->getName(), $exception->getMessage()));
                     $this->statusCode = 190;
                 }
             }
+            $this->runtime->getIsLoggerStdout()
+                ? $output->writeln('            '.$taskTextStatus)
+                : $output->writeln($taskTextStatus);
 
             if ($this->statusCode !== 0) {
                 break;

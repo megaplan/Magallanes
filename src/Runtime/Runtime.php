@@ -31,6 +31,8 @@ class Runtime
     const ON_RELEASE = 'on-release';
     const POST_RELEASE = 'post-release';
 
+    const LOGGER_STDOUT = 'stdout';
+
     /**
      * @var array Magallanes configuration
      */
@@ -70,6 +72,11 @@ class Runtime
      * @var bool Indicates if a Rollback operation is in progress
      */
     protected $rollback = false;
+
+    /**
+     * @var bool
+     */
+    protected $isLoggerStdout = false;
 
     /**
      * Generate the Release ID
@@ -165,6 +172,28 @@ class Runtime
     {
         $this->logger = $logger;
         return $this;
+    }
+
+    /**
+     * Set logger is use stdout
+     *
+     * @param bool $value
+     * @return $this
+     */
+    public function setIsLoggerStdout($value)
+    {
+        $this->isLoggerStdout = $value;
+        return $this;
+    }
+
+    /**
+     * Get logger is use stdout
+     *
+     * @return bool
+     */
+    public function getIsLoggerStdout()
+    {
+        return $this->isLoggerStdout;
     }
 
     /**
@@ -407,7 +436,9 @@ class Runtime
 
         $process = new Process($cmd);
         $process->setTimeout($timeout);
-        $process->run();
+        $process->run(function($type, $buffer) {
+            $this->runLocalCommandCallback($type, $buffer);
+        });
 
         $this->log($process->getOutput(), LogLevel::DEBUG);
         if (!$process->isSuccessful()) {
@@ -415,6 +446,15 @@ class Runtime
         }
 
         return $process;
+    }
+
+    protected function runLocalCommandCallback($type, $buffer)
+    {
+        if (Process::OUT === $type && !empty($buffer)) {
+            $this->log($buffer, LogLevel::DEBUG);
+        } else {
+            $this->log($buffer, LogLevel::ERROR);
+        }
     }
 
     /**
