@@ -32,6 +32,7 @@ class Runtime
     const POST_RELEASE = 'post-release';
 
     const LOGGER_STDOUT = 'stdout';
+    const ENV_DEFAULT = 'default';
 
     /**
      * @var array Magallanes configuration
@@ -243,16 +244,22 @@ class Runtime
      */
     public function getEnvOption($key, $default = null)
     {
-        if (!array_key_exists('environments', $this->configuration) || !is_array($this->configuration['environments'])) {
-            return $default;
-        }
-
-        if (!array_key_exists($this->environment, $this->configuration['environments'])) {
-            return $default;
-        }
-
-        if (array_key_exists($key, $this->configuration['environments'][$this->environment])) {
-            return $this->configuration['environments'][$this->environment][$key];
+        if (array_key_exists('environments', $this->configuration) && is_array($this->configuration['environments'])) {
+            if (
+                array_key_exists($this->environment, $this->configuration['environments']) &&
+                array_key_exists($key, $this->configuration['environments'][$this->environment])
+            ) {
+                return $this->configuration['environments'][$this->environment][$key]
+                    ? $this->configuration['environments'][$this->environment][$key]
+                    : $default;
+            }
+            if (
+                array_key_exists(self::ENV_DEFAULT, $this->configuration['environments']) &&
+                array_key_exists($key, $this->configuration['environments'][self::ENV_DEFAULT]) &&
+                !empty($this->configuration['environments'][self::ENV_DEFAULT][$key])
+            ) {
+                return $this->configuration['environments'][self::ENV_DEFAULT][$key];
+            }
         }
 
         return $default;
@@ -352,17 +359,21 @@ class Runtime
      */
     public function getTasks()
     {
-        if (!array_key_exists('environments', $this->configuration) || !is_array($this->configuration['environments'])) {
-            return [];
-        }
-
-        if (!array_key_exists($this->environment, $this->configuration['environments'])) {
-            return [];
-        }
-
-        if (array_key_exists($this->stage, $this->configuration['environments'][$this->environment])) {
-            if (is_array($this->configuration['environments'][$this->environment][$this->stage])) {
-                return $this->configuration['environments'][$this->environment][$this->stage];
+        if (array_key_exists('environments', $this->configuration) && is_array($this->configuration['environments'])) {
+            if (
+                array_key_exists($this->environment, $this->configuration['environments']) &&
+                array_key_exists($this->stage, $this->configuration['environments'][$this->environment])
+            ) {
+                return is_array($this->configuration['environments'][$this->environment][$this->stage])
+                    ? $this->configuration['environments'][$this->environment][$this->stage]
+                    : [];
+            }
+            if (
+                array_key_exists(self::ENV_DEFAULT, $this->configuration['environments']) &&
+                array_key_exists($this->stage, $this->configuration['environments'][self::ENV_DEFAULT]) &&
+                is_array($this->configuration['environments'][self::ENV_DEFAULT][$this->stage])
+            ) {
+                return $this->configuration['environments'][self::ENV_DEFAULT][$this->stage];
             }
         }
 

@@ -12,6 +12,7 @@ namespace Mage\Tests;
 
 use Mage\MageApplication;
 use Mage\Runtime\Exception\RuntimeException;
+use Mage\Runtime\Runtime;
 use Symfony\Component\Console\Tester\ApplicationTester;
 use Exception;
 use PHPUnit_Framework_TestCase as TestCase;
@@ -34,6 +35,46 @@ class MageApplicationTest extends TestCase
             $this->assertTrue($exception instanceof RuntimeException);
             $this->assertEquals(sprintf('The file "%s" does not have a valid Magallanes configuration.', __DIR__ . '/Resources/invalid.yml'), $exception->getMessage());
         }
+    }
+
+    public function testConfigurationWithDefaultEnvironment()
+    {
+        $application = new MageApplication(__DIR__ . '/Resources/basic-with-default-env.yml');
+        $application->configure();
+        // options
+        $application->getRuntime()->setEnvironment('production');
+        $this->assertEquals(
+            $application->getRuntime()->getEnvOption('host_path', 'default'),
+            '/var/www/myapp'
+        );
+        $this->assertEquals(
+            $application->getRuntime()->getEnvOption('releases', 'default'),
+            '4'
+        );
+        $this->assertEquals(
+            $application->getRuntime()->getEnvOption('exclude', 'default'),
+            'default'
+        );
+        // tasks
+        $application->getRuntime()->setStage(Runtime::ON_DEPLOY);
+        $this->assertEquals(
+            $application->getRuntime()->getTasks(),
+            [
+                ['symfony/cache-warmup' => ['env' => 'dev']],
+                ['symfony/assets-install' => ['env' => 'dev']],
+                ['symfony/assetic-dump' => ['env' => 'dev']],
+            ]
+        );
+        $application->getRuntime()->setStage(Runtime::ON_RELEASE);
+        $this->assertEquals(
+            $application->getRuntime()->getTasks(),
+            []
+        );
+        $application->getRuntime()->setStage(Runtime::POST_RELEASE);
+        $this->assertEquals(
+            $application->getRuntime()->getTasks(),
+            [['symfony/assetic-dump' => ['env' => 'dev']]]
+        );
     }
 
     public function testParserError()
