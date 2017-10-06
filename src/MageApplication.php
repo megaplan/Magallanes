@@ -12,6 +12,7 @@ namespace Mage;
 
 use Mage\Command\AbstractCommand;
 use Mage\Runtime\Runtime;
+use Monolog\Formatter\LineFormatter;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 use Monolog\Logger;
@@ -32,7 +33,9 @@ use Mage\Runtime\Exception\RuntimeException;
  */
 class MageApplication extends Application
 {
+    /** @var Runtime */
     protected $runtime;
+    /** @var string  */
     protected $file;
 
     /**
@@ -78,12 +81,24 @@ class MageApplication extends Application
 
         if (array_key_exists('magephp', $config) && is_array($config['magephp'])) {
             $logger = null;
-            if (array_key_exists('log_dir', $config['magephp']) && file_exists($config['magephp']['log_dir']) && is_dir($config['magephp']['log_dir'])) {
-                $logfile = sprintf('%s/%s.log', $config['magephp']['log_dir'], date('Ymd_His'));
-                $config['magephp']['log_file'] = $logfile;
+            if (array_key_exists('log_dir', $config['magephp'])) {
+                if ($config['magephp']['log_dir'] === Runtime::LOGGER_STDOUT) {
+                    $logger = new Logger('magephp');
+                    $loggerFormatter = new LineFormatter(
+                        "            ".chr(27)."[34m[%datetime%] %level_name%".chr(27)."[0m:\n".
+                        "            %message%\n"
+                    );
+                    $loggerHandler = new StreamHandler('php://stderr');
+                    $loggerHandler->setFormatter($loggerFormatter);
+                    $logger->pushHandler($loggerHandler);
+                    $this->runtime->setIsLoggerStdout(true);
+                } elseif (file_exists($config['magephp']['log_dir']) && is_dir($config['magephp']['log_dir'])) {
+                    $logfile = sprintf('%s/%s.log', $config['magephp']['log_dir'], date('Ymd_His'));
+                    $config['magephp']['log_file'] = $logfile;
 
-                $logger = new Logger('magephp');
-                $logger->pushHandler(new StreamHandler($logfile));
+                    $logger = new Logger('magephp');
+                    $logger->pushHandler(new StreamHandler($logfile));
+                }
             }
 
             $this->runtime->setConfiguration($config['magephp']);
