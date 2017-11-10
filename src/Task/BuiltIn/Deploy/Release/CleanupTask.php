@@ -49,11 +49,20 @@ class CleanupTask extends AbstractTask
                 $releasesToDelete = array_slice($releases, 0, count($releases) - $maxReleases);
                 foreach ($releasesToDelete as $releaseId) {
                     if ($releaseId != $currentReleaseId) {
+                        // try delete
                         $cmdDeleteRelease = sprintf('rm -rf %s/releases/%s', $hostPath, $releaseId);
                         /** @var Process $process */
                         $process = $this->runtime->runRemoteCommand($cmdDeleteRelease, false);
                         if (!$process->isSuccessful()) {
-                            return false;
+                            // try move to /archive folder
+                            $cmdMoveRelease = sprintf(
+                                'i=0; name="%s"; while [ -d "%s/archive/\$name" ]; do i=\$((\$i + 1)); name="%s-\$i"; done && if ! mv %s/releases/%s %s/archive/\$name; then echo "Cannot move \$name"; fi',
+                                $releaseId, $hostPath, $releaseId, $hostPath, $releaseId, $hostPath
+                            );
+                            $process = $this->runtime->runRemoteCommand($cmdMoveRelease, false);
+                            if (!$process->isSuccessful()) {
+                                return false;
+                            }
                         }
                     }
                 }
